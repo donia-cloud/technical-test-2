@@ -5,6 +5,7 @@ import { useHistory } from "react-router-dom";
 import Loader from "../../components/loader";
 import LoadingButton from "../../components/loadingButton";
 import api from "../../services/api";
+import { useMemo } from "react";
 
 const NewList = () => {
   const [users, setUsers] = useState(null);
@@ -20,9 +21,21 @@ const NewList = () => {
     getProjects();
   }, []);
 
+  // async function getProjects() {
+  //   const res = await api.get("/project");
+  //   setProjects(res.data);
+  // }
+
+
+
   async function getProjects() {
-    const res = await api.get("/project");
-    setProjects(res.data);
+    try {
+      const res = await api.get("/project");
+      setProjects(res.data);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      toast.error("Failed to load projects.");
+    }
   }
 
   useEffect(() => {
@@ -32,8 +45,18 @@ const NewList = () => {
         .filter((u) => !filter?.status || u.status === filter?.status)
         .filter((u) => !filter?.contract || u.contract === filter?.contract)
         .filter((u) => !filter?.availability || u.availability === filter?.availability)
-        .filter((u) => !filter?.search || u.name.toLowerCase().includes(filter?.search.toLowerCase())),
+        .filter((u) => !filter?.search || u.name.toLowerCase().includes(filter?.search.toLowerCase()))
     );
+  }, [users, filter]);
+  
+  // Utilisation de useMemo pour optimiser les performances de filtrage
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users
+      .filter((u) => !filter?.status || u.status === filter?.status)
+      .filter((u) => !filter?.contract || u.contract === filter?.contract)
+      .filter((u) => !filter?.availability || u.availability === filter?.availability)
+      .filter((u) => !filter?.search || u.name.toLowerCase().includes(filter?.search.toLowerCase()));
   }, [users, filter]);
 
   if (!usersFiltered) return <Loader />;
@@ -106,19 +129,23 @@ const Create = () => {
             }}>
             <Formik
               initialValues={{}}
-              onSubmit={async (values, { setSubmitting }) => {
+             onSubmit={async (values, { setSubmitting }) => {
                 try {
-                  values.status = "active";
-                  values.availability = "not available";
-                  values.role = "ADMIN";
-                  const res = await api.post("/user", values);
-                  if (!res.ok) throw res;
-                  toast.success("Created!");
+                  const userData = {
+                    ...values,
+                    status: "active",
+                    availability: "not available",
+                    role: "ADMIN",
+                    name: values.username,  // Assurez-vous que le champ est correctement nommé
+                  };
+                  const res = await api.post("/user", userData);
+                  if (!res.data) throw new Error("No data returned");
+                  toast.success("User created successfully!");
                   setOpen(false);
                   history.push(`/user/${res.data._id}`);
                 } catch (e) {
-                  console.log(e);
-                  toast.error("Some Error!", e.code);
+                  console.error("Error creating user:", e);
+                  toast.error(`Error: ${e.message || 'An error occurred'}`);
                 }
                 setSubmitting(false);
               }}>
@@ -139,7 +166,9 @@ const Create = () => {
                       {/* Password */}
                       <div className="w-full md:w-[48%] mt-2">
                         <div className="text-[14px] text-[#212325] font-medium	">Password</div>
-                        <input className="projectsInput text-[14px] font-normal text-[#212325] rounded-[10px]" name="password" value={values.password} onChange={handleChange} />
+                        <input type="password" className="projectsInput" name="password" value={values.password} onChange={handleChange} />
+
+                        {/* <input className="projectsInput text-[14px] font-normal text-[#212325] rounded-[10px]" name="password" value={values.password} onChange={handleChange} /> */}
                       </div>
                     </div>
                   </div>
@@ -193,7 +222,7 @@ const FilterStatus = ({ filter, setFilter }) => {
         className="w-[180px] bg-[#FFFFFF] text-[14px] text-[#212325] font-normal py-2 px-[14px] rounded-[10px] border-r-[16px] border-[transparent] cursor-pointer"
         value={filter.status}
         onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
-        <option disabled>Status</option>
+        <option >Status</option>
         <option value={""}>All status</option>
         {[
           { value: "active", label: "Active" },
